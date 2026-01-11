@@ -1,7 +1,6 @@
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
-#include <cstdio>
 #include <SDL3/SDL.h>
 #include <memory>
 
@@ -22,26 +21,26 @@ struct App {
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     auto app = std::make_unique<App>();
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
-        printf("Error: SDL_Init(): %s\n", SDL_GetError());
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: SDL_Init(): %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
     app->window = SDL_CreateWindow("Dear ImGui SDL3+SDL_GPU example", 1280, 720,
                                    SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (app->window == nullptr) {
-        printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: SDL_CreateWindow(): %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
     app->gpu_device = SDL_CreateGPUDevice(
         SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB, true, nullptr);
     if (app->gpu_device == nullptr) {
-        printf("Error: SDL_CreateGPUDevice(): %s\n", SDL_GetError());
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: SDL_CreateGPUDevice(): %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
     if (!SDL_ClaimWindowForGPUDevice(app->gpu_device, app->window)) {
-        printf("Error: SDL_ClaimWindowForGPUDevice(): %s\n", SDL_GetError());
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: SDL_ClaimWindowForGPUDevice(): %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
     }
     SDL_SetGPUSwapchainParameters(app->gpu_device, app->window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
@@ -50,7 +49,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
-    (void) io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
