@@ -126,7 +126,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 }
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
-    const auto app = static_cast<App *>(appstate);
+    const std::unique_ptr<App> app{static_cast<App *>(appstate)};
     SDL_WaitForGPUIdle(app->gpu_device);
     ImGui_ImplSDL3_Shutdown();
     ImGui_ImplSDLGPU3_Shutdown();
