@@ -1,14 +1,16 @@
+#include <SDL3/SDL.h>
+#define SDL_MAIN_USE_CALLBACKS
+#include <SDL3/SDL_main.h>
+
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
-#include <SDL3/SDL.h>
-#include <memory>
 
-#define SDL_MAIN_USE_CALLBACKS
+#include <memory>
 #include <source_location>
-#include <SDL3/SDL_main.h>
 
 struct App {
+    bool is_suspended = true;
     SDL_Window *window = nullptr;
     SDL_GPUDevice *gpu_device = nullptr;
     bool show_demo_window = true;
@@ -19,6 +21,29 @@ SDL_AppResult sdl_error(const std::source_location &loc = std::source_location::
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s:%d:%d: %s\n", loc.file_name(), loc.line(), loc.column(),
                  SDL_GetError());
     return SDL_APP_FAILURE;
+}
+
+SDL_AppResult resume(App *app) {
+    if (!app->is_suspended) return SDL_APP_CONTINUE;
+    app->is_suspended = false;
+
+    if (!SDL_ClaimWindowForGPUDevice(app->gpu_device, app->window))
+        return sdl_error();
+    SDL_SetGPUSwapchainParameters(app->gpu_device, app->window,
+                                  SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
+                                  SDL_GPU_PRESENTMODE_MAILBOX);
+
+    return SDL_APP_CONTINUE;
+}
+
+SDL_AppResult suspend(App *app) {
+    if (app->is_suspended) return SDL_APP_CONTINUE;
+    app->is_suspended = true;
+
+    SDL_WaitForGPUIdle(app->gpu_device);
+    SDL_ReleaseWindowFromGPUDevice(app->gpu_device, app->window);
+
+    return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
@@ -40,11 +65,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     if (!app->gpu_device)
         return sdl_error();
 
-    if (!SDL_ClaimWindowForGPUDevice(app->gpu_device, app->window))
-        return sdl_error();
-
-    SDL_SetGPUSwapchainParameters(app->gpu_device, app->window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
-                                  SDL_GPU_PRESENTMODE_MAILBOX);
+    resume(app.get());
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -68,7 +89,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 SDL_AppResult SDL_AppIterate(void *appstate) {
     const auto app = static_cast<App *>(appstate);
 
-    if (SDL_GetWindowFlags(app->window) & SDL_WINDOW_MINIMIZED) {
+    if (app->is_suspended) {
         SDL_WaitEvent(nullptr);
         return SDL_APP_CONTINUE;
     }
@@ -115,16 +136,29 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     const auto app = static_cast<App *>(appstate);
+
     ImGui_ImplSDL3_ProcessEvent(event);
-    if (event->type == SDL_EVENT_QUIT)
-        return SDL_APP_SUCCESS;
-    if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event->window.windowID == SDL_GetWindowID(app->window))
-        return SDL_APP_SUCCESS;
-    return SDL_APP_CONTINUE;
+
+    switch (event->type) {
+        case SDL_EVENT_QUIT:
+            return SDL_APP_SUCCESS;
+        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+            if (event->window.windowID == SDL_GetWindowID(app->window))
+                return SDL_APP_SUCCESS;
+        case SDL_EVENT_WILL_ENTER_BACKGROUND:
+        case SDL_EVENT_WINDOW_MINIMIZED:
+            return suspend(app);
+        case SDL_EVENT_DID_ENTER_FOREGROUND:
+        case SDL_EVENT_WINDOW_RESTORED:
+            return resume(app);
+        default:
+            return SDL_APP_CONTINUE;
+    }
 }
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     const std::unique_ptr<App> app{static_cast<App *>(appstate)};
+
     SDL_WaitForGPUIdle(app->gpu_device);
     ImGui_ImplSDL3_Shutdown();
     ImGui_ImplSDLGPU3_Shutdown();
