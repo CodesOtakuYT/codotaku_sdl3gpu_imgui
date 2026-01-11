@@ -1,0 +1,12 @@
+{
+  "name": "codotaku-sdl3gpu-imgui",
+  "version-string": "0.0.1",
+  "dependencies": [
+    {
+      "name": "imgui",
+      "features": [
+        "sdlgpu3-binding"
+      ]
+    }
+  ]
+}
