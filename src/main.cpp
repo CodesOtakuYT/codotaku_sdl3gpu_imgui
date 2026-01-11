@@ -5,6 +5,7 @@
 #include <memory>
 
 #define SDL_MAIN_USE_CALLBACKS
+#include <source_location>
 #include <SDL3/SDL_main.h>
 
 struct App {
@@ -14,31 +15,34 @@ struct App {
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 };
 
+SDL_AppResult sdl_error(const std::source_location &loc = std::source_location::current()) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s:%d:%d: %s\n", loc.file_name(), loc.line(), loc.column(),
+                 SDL_GetError());
+    return SDL_APP_FAILURE;
+}
+
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     auto app = std::make_unique<App>();
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: SDL_Init(): %s\n", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
 
-    app->window = SDL_CreateWindow("Dear ImGui SDL3+SDL_GPU example", 1280, 720,
+    if (SDL_SetAppMetadata("App Name", "0.0.1", "com.author.appname"))
+        return sdl_error();
+
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
+        return sdl_error();
+
+    app->window = SDL_CreateWindow("Window title", 1280, 720,
                                    SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-    if (app->window == nullptr) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: SDL_CreateWindow(): %s\n", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
+    if (!app->window)
+        return sdl_error();
 
     app->gpu_device = SDL_CreateGPUDevice(
         SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB, true, nullptr);
-    if (app->gpu_device == nullptr) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: SDL_CreateGPUDevice(): %s\n", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
+    if (!app->gpu_device)
+        return sdl_error();
 
-    if (!SDL_ClaimWindowForGPUDevice(app->gpu_device, app->window)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error: SDL_ClaimWindowForGPUDevice(): %s\n", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
+    if (!SDL_ClaimWindowForGPUDevice(app->gpu_device, app->window))
+        return sdl_error();
+
     SDL_SetGPUSwapchainParameters(app->gpu_device, app->window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
                                   SDL_GPU_PRESENTMODE_MAILBOX);
 
@@ -129,5 +133,4 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     SDL_ReleaseWindowFromGPUDevice(app->gpu_device, app->window);
     SDL_DestroyGPUDevice(app->gpu_device);
     SDL_DestroyWindow(app->window);
-    SDL_Quit();
 }
