@@ -29,9 +29,10 @@ SDL_AppResult resume(App *app) {
 
     if (!SDL_ClaimWindowForGPUDevice(app->gpu_device, app->window))
         return sdl_error();
-    SDL_SetGPUSwapchainParameters(app->gpu_device, app->window,
-                                  SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
-                                  SDL_GPU_PRESENTMODE_MAILBOX);
+    if (!SDL_SetGPUSwapchainParameters(app->gpu_device, app->window,
+                                       SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
+                                       SDL_GPU_PRESENTMODE_MAILBOX))
+        return sdl_error();
 
     return SDL_APP_CONTINUE;
 }
@@ -40,7 +41,8 @@ SDL_AppResult suspend(App *app) {
     if (app->is_suspended) return SDL_APP_CONTINUE;
     app->is_suspended = true;
 
-    SDL_WaitForGPUIdle(app->gpu_device);
+    if (!SDL_WaitForGPUIdle(app->gpu_device))
+        return sdl_error();
     SDL_ReleaseWindowFromGPUDevice(app->gpu_device, app->window);
 
     return SDL_APP_CONTINUE;
@@ -90,7 +92,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     const auto app = static_cast<App *>(appstate);
 
     if (app->is_suspended) {
-        SDL_WaitEvent(nullptr);
+        if (!SDL_WaitEvent(nullptr))
+            return sdl_error();
         return SDL_APP_CONTINUE;
     }
 
@@ -108,7 +111,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     const auto command_buffer = SDL_AcquireGPUCommandBuffer(app->gpu_device);
 
     SDL_GPUTexture *swapchain_texture;
-    SDL_AcquireGPUSwapchainTexture(command_buffer, app->window, &swapchain_texture, nullptr, nullptr);
+    if (!SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, app->window, &swapchain_texture, nullptr, nullptr))
+        return sdl_error();
 
     if (swapchain_texture != nullptr && !is_minimized) {
         Imgui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
