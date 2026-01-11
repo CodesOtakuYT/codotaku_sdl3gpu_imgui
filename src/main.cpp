@@ -7,10 +7,6 @@
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
 
-#ifdef __EMSCRIPTEN__
-#include "../libs/emscripten/emscripten_mainloop_stub.h"
-#endif
-
 struct App {
     SDL_Window *window = nullptr;
     SDL_GPUDevice *gpu_device = nullptr;
