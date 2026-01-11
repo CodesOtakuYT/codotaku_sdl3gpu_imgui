@@ -111,10 +111,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     const auto command_buffer = SDL_AcquireGPUCommandBuffer(app->gpu_device);
 
     SDL_GPUTexture *swapchain_texture;
-    if (!SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, app->window, &swapchain_texture, nullptr, nullptr))
+    Uint32 swapchain_width, swapchain_height;
+    if (!SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, app->window, &swapchain_texture, &swapchain_width,
+                                               &swapchain_height))
         return sdl_error();
 
-    if (swapchain_texture != nullptr && !is_minimized) {
+    if (swapchain_texture && !is_minimized) {
         Imgui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
 
         SDL_GPUColorTargetInfo target_info = {};
@@ -133,7 +135,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         SDL_EndGPURenderPass(render_pass);
     }
 
-    SDL_SubmitGPUCommandBuffer(command_buffer);
+    if (!SDL_SubmitGPUCommandBuffer(command_buffer))
+        return sdl_error();
 
     return SDL_APP_CONTINUE;
 }
@@ -163,7 +166,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     const std::unique_ptr<App> app{static_cast<App *>(appstate)};
 
-    SDL_WaitForGPUIdle(app->gpu_device);
+    if (!SDL_WaitForGPUIdle(app->gpu_device))
+        sdl_error();
     ImGui_ImplSDL3_Shutdown();
     ImGui_ImplSDLGPU3_Shutdown();
     ImGui::DestroyContext();
