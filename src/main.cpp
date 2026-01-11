@@ -24,7 +24,7 @@ SDL_AppResult sdl_error(const std::source_location &loc = std::source_location::
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     auto app = std::make_unique<App>();
 
-    if (SDL_SetAppMetadata("App Name", "0.0.1", "com.author.appname"))
+    if (!SDL_SetAppMetadata("App Name", "0.0.1", "com.author.appname"))
         return sdl_error();
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
