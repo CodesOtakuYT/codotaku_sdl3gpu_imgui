@@ -48,7 +48,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
+    auto io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
@@ -81,10 +81,10 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         ImGui::ShowDemoWindow(&app->show_demo_window);
 
     ImGui::Render();
-    ImDrawData *draw_data = ImGui::GetDrawData();
+    const auto draw_data = ImGui::GetDrawData();
     const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 
-    SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(app->gpu_device);
+    const auto command_buffer = SDL_AcquireGPUCommandBuffer(app->gpu_device);
 
     SDL_GPUTexture *swapchain_texture;
     SDL_AcquireGPUSwapchainTexture(command_buffer, app->window, &swapchain_texture, nullptr, nullptr);
@@ -102,7 +102,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         target_info.mip_level = 0;
         target_info.layer_or_depth_plane = 0;
         target_info.cycle = false;
-        SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
+        const auto render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
         ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, render_pass);
 
         SDL_EndGPURenderPass(render_pass);
